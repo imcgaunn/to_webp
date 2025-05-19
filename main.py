@@ -21,7 +21,6 @@ def parse_arguments(args) -> Namespace:
     )
     parser.add_argument(
         "input_dir",
-        default=pathlib.Path(__file__).parent,
         type=pathlib.Path,
         help="directory containing source images to convert",
     )

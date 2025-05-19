@@ -35,4 +35,4 @@ tv run python3 main.py --help
 ```
 
 `to_webp` will output files into output_dir ignoring any structure they had in the
-parent folder, with their extensions replaced with `.webp`
+parent folder, with their original extensions replaced with `.webp`
