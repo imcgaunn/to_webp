@@ -76,13 +76,6 @@ async def convert_and_strip_image_at_path_async(
     )
 
 
-async def _logged_convert(image_path, output_dir):
-    # print(f"converting {image_path} to {output_dir}")
-    result = await convert_and_strip_image_at_path_async(image_path, output_dir)
-    # print(f"done converting {image_path} to {output_dir}")
-    return result
-
-
 async def main():
     opts = parse_arguments(sys.argv[1:])
     # TODO: support calling program with path to specific image
@@ -93,7 +86,8 @@ async def main():
     # TODO: create output directory if it doesn't exist and we're allowed
 
     convert_tasks = [
-        asyncio.create_task(_logged_convert(ip, opts.output_dir)) for ip in image_paths
+        asyncio.create_task(convert_and_strip_image_at_path_async(ip, opts.output_dir))
+        for ip in image_paths
     ]
     result_stats = []
     for ct in tqdm.as_completed(convert_tasks):
