@@ -70,7 +70,8 @@ def convert_and_strip_image_at_path_sync(
 async def convert_and_strip_image_at_path_async(
     image_path: pathlib.Path, output_dir: pathlib.Path
 ) -> os.stat_result:
-    # run conversion task in a separate thread
+    # run conversion task in a separate thread, otherwise we're blocking
+    # event loop when pillows is saving image on same thread.
     return await asyncio.to_thread(
         convert_and_strip_image_at_path_sync, image_path, output_dir
     )
@@ -85,25 +86,17 @@ async def _logged_convert(image_path, output_dir):
 
 async def main():
     opts = parse_arguments(sys.argv[1:])
-    print(f"finding images in {opts.input_dir}")
     # TODO: support calling program with path to specific image
     # instead of crawling a directory and converting everything in directory
-    #
-    # TODO: create output directory if it doesn't exist and we're allowed
     image_paths = find_images_in_directory(opts.input_dir)
-
     num_results = len(image_paths)
     print(f"found {num_results} images in {opts.input_dir}")
-    if num_results > 20:
-        print("only printing first 20 results")
-    for ip in image_paths[0:20]:
-        print(str(ip))
+    # TODO: create output directory if it doesn't exist and we're allowed
 
-    result_stats = []
     convert_tasks = [
         asyncio.create_task(_logged_convert(ip, opts.output_dir)) for ip in image_paths
     ]
-    print(len(convert_tasks), "created convert tasks")
+    result_stats = []
     for ct in tqdm.as_completed(convert_tasks):
         convert_res = await ct
         result_stats.append(convert_res)
