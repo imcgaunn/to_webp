@@ -1,10 +1,12 @@
-from PIL import Image
-from pillow_heif import register_heif_opener
-from argparse import ArgumentParser, Namespace
+import asyncio
 import os
 import pathlib
 import sys
+from PIL import Image
+from pillow_heif import register_heif_opener
+from argparse import ArgumentParser, Namespace
 from typing import List
+from tqdm.asyncio import tqdm
 
 register_heif_opener()
 
@@ -41,7 +43,7 @@ def find_images_in_directory(directory: pathlib.Path) -> List[pathlib.Path]:
     return dir_images
 
 
-def get_converted_webp_image_path(
+def _get_converted_webp_image_path(
     image_path: pathlib.Path, output_dir: pathlib.Path
 ) -> pathlib.Path:
     image_basename = image_path.name
@@ -50,13 +52,13 @@ def get_converted_webp_image_path(
     return result_path
 
 
-def convert_and_strip_image_at_path(
+def convert_and_strip_image_at_path_sync(
     image_path: pathlib.Path, output_dir: pathlib.Path
 ) -> os.stat_result:
     """given a pathlib.Path to an image in a supported format, convert to webp
     with lossless compression and save in output directory with extension .webp"""
 
-    result_path = get_converted_webp_image_path(image_path, output_dir)
+    result_path = _get_converted_webp_image_path(image_path, output_dir)
     with Image.open(image_path) as img:
         if img.mode in UNSUPPORTED_WEBP_MODES:
             img = img.convert("RGB")
@@ -65,11 +67,29 @@ def convert_and_strip_image_at_path(
         return result_path.stat()
 
 
-def main():
+async def convert_and_strip_image_at_path_async(
+    image_path: pathlib.Path, output_dir: pathlib.Path
+) -> os.stat_result:
+    # run conversion task in a separate thread
+    return await asyncio.to_thread(
+        convert_and_strip_image_at_path_sync, image_path, output_dir
+    )
+
+
+async def _logged_convert(image_path, output_dir):
+    # print(f"converting {image_path} to {output_dir}")
+    result = await convert_and_strip_image_at_path_async(image_path, output_dir)
+    # print(f"done converting {image_path} to {output_dir}")
+    return result
+
+
+async def main():
     opts = parse_arguments(sys.argv[1:])
     print(f"finding images in {opts.input_dir}")
     # TODO: support calling program with path to specific image
     # instead of crawling a directory and converting everything in directory
+    #
+    # TODO: create output directory if it doesn't exist and we're allowed
     image_paths = find_images_in_directory(opts.input_dir)
 
     num_results = len(image_paths)
@@ -79,13 +99,15 @@ def main():
     for ip in image_paths[0:20]:
         print(str(ip))
 
-    print("result paths:")
-    result_paths = [
-        get_converted_webp_image_path(ip, opts.output_dir) for ip in image_paths
+    result_stats = []
+    convert_tasks = [
+        asyncio.create_task(_logged_convert(ip, opts.output_dir)) for ip in image_paths
     ]
-    for rp in result_paths[0:20]:
-        print(str(rp))
+    print(len(convert_tasks), "created convert tasks")
+    for ct in tqdm.as_completed(convert_tasks):
+        convert_res = await ct
+        result_stats.append(convert_res)
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
