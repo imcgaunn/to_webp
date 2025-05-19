@@ -1,7 +1,7 @@
 [project]
 name = "to-webp"
 version = "0.1.0"
-description = "Add your description here"
+description = "command line utility to quickly convert a directory containing image files of various formats to webp with lossless compression"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
