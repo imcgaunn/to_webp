@@ -93,6 +93,7 @@ def convert_and_strip_image_at_path_sync(
     with Image.open(image_path) as img:
         if img.mode in UNSUPPORTED_WEBP_MODES:
             img = img.convert("RGB")
+        # don't set exif kwarg to avoid copying exif data
         img.save(result_path, "WEBP", lossless=True)
         # should raise if file wasn't saved successfully
         return ConvertResult(filepath=str(result_path), fstat=result_path.stat())
