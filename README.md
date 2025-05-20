@@ -36,3 +36,15 @@ tv run python3 main.py --help
 
 `to_webp` will output files into output_dir ignoring any structure they had in the
 parent folder, with their original extensions replaced with `.webp`
+
+### example usage/output - converting directory of images
+
+```bash
+to_webp on  main [!] is 📦 v0.1.0 via 🐍 v3.13.2 took 30s
+✦ ❯ uv run python3 main.py /home/imcgaunn/Pictures/Weezy /home/imcgaunn/Pictures/WeezyWeb/MoreWeezyWeb
+converting images in /home/imcgaunn/Pictures/Weezy
+saving converted .webp images to /home/imcgaunn/Pictures/WeezyWeb/MoreWeezyWeb
+Converting: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 72/72 [00:34<00:00,  2.10it/s]
+successfully converted 72 images
+
+```
