@@ -1,4 +1,5 @@
 import asyncio
+import dataclasses
 import os
 import pathlib
 import sys
@@ -12,6 +13,12 @@ register_heif_opener()
 
 SUPPORTED_IMG_EXTENSIONS = {".jpg", ".jpeg", ".heic", ".heif", ".png", ".bmp"}
 UNSUPPORTED_WEBP_MODES = {"RGBA", "P"}
+
+
+@dataclasses.dataclass(frozen=True)
+class ConvertResult:
+    filepath: str
+    fstat: os.stat_result
 
 
 def parse_arguments(args) -> Namespace:
@@ -33,6 +40,15 @@ def parse_arguments(args) -> Namespace:
 
 
 def find_images_in_directory(directory: pathlib.Path) -> List[pathlib.Path]:
+    """Get list of paths for images of supported formats in a directory.
+
+    Args:
+        directory: the directory to search for images.
+
+    Returns:
+        The list of pathlib.Path objects for images under `directory`
+
+    """
     dir_images = []
     for root, _, files in directory.walk():
         for name in files:
@@ -53,9 +69,20 @@ def _get_converted_webp_image_path(
 
 def convert_and_strip_image_at_path_sync(
     image_path: pathlib.Path, output_dir: pathlib.Path
-) -> os.stat_result:
-    """given a pathlib.Path to an image in a supported format, convert to webp
-    with lossless compression and save in output directory with extension .webp"""
+) -> ConvertResult:
+    """Convert an image and strip it of exif data.
+
+    Given a pathlib.Path to an image in a supported format, convert to webp
+    with lossless compression and save in output directory with extension `.webp`.
+
+    Args:
+        image_path: The path to image that should be converted and stripped of exif
+            data.
+        output_dir: The path to directory where .webp should be output.
+
+    Returns:
+        ConvertResult: The result of image conversion.
+    """
 
     result_path = _get_converted_webp_image_path(image_path, output_dir)
     with Image.open(image_path) as img:
@@ -63,14 +90,25 @@ def convert_and_strip_image_at_path_sync(
             img = img.convert("RGB")
         img.save(result_path, "WEBP", lossless=True)
         # should raise if file wasn't saved successfully
-        return result_path.stat()
+        return ConvertResult(filepath=str(result_path), fstat=result_path.stat())
 
 
 async def convert_and_strip_image_at_path_async(
     image_path: pathlib.Path, output_dir: pathlib.Path
-) -> os.stat_result:
-    # run conversion task in a separate thread, otherwise we're blocking
-    # event loop when pillows is saving image on same thread.
+) -> ConvertResult:
+    """Async wrapper for convert_and_strip_image_at_path_sync.
+
+    Runs `convert_and_strip_image_at_path_sync` in separate executor to avoid
+    blocking event loop when saving images.
+
+    Args:
+        image_path: The path to image that should be converted and stripped of exif
+            data.
+        output_dir: The path to directory where .webp should be output.
+
+    Returns:
+        ConvertResult: The result of image conversion.
+    """
     return await asyncio.to_thread(
         convert_and_strip_image_at_path_sync, image_path, output_dir
     )
@@ -81,18 +119,18 @@ async def main():
     # TODO: support calling program with path to specific image
     # instead of crawling a directory and converting everything in directory
     image_paths = find_images_in_directory(opts.input_dir)
-    num_results = len(image_paths)
-    print(f"found {num_results} images in {opts.input_dir}")
+    print(f"converting images in {opts.input_dir}")
+    print(f"saving converted .webp images to {opts.output_dir} ")
     # TODO: create output directory if it doesn't exist and we're allowed
 
     convert_tasks = [
         asyncio.create_task(convert_and_strip_image_at_path_async(ip, opts.output_dir))
         for ip in image_paths
     ]
-    result_stats = []
-    for ct in tqdm.as_completed(convert_tasks):
-        convert_res = await ct
-        result_stats.append(convert_res)
+    result_stats = [
+        await ct for ct in tqdm.as_completed(convert_tasks, desc="Converting")
+    ]
+    print(f"successfully converted {len(result_stats)} images")
 
 
 if __name__ == "__main__":
