@@ -39,6 +39,11 @@ def parse_arguments(args) -> Namespace:
     return parser.parse_args(args)
 
 
+def mkdir_if_not_exists(directory: pathlib.Path):
+    if not directory.exists():
+        directory.mkdir()
+
+
 def find_images_in_directory(directory: pathlib.Path) -> List[pathlib.Path]:
     """Get list of paths for images of supported formats in a directory.
 
@@ -116,12 +121,13 @@ async def convert_and_strip_image_at_path_async(
 
 async def main():
     opts = parse_arguments(sys.argv[1:])
+
+    mkdir_if_not_exists(opts.output_dir)
     # TODO: support calling program with path to specific image
     # instead of crawling a directory and converting everything in directory
     image_paths = find_images_in_directory(opts.input_dir)
     print(f"converting images in {opts.input_dir}")
     print(f"saving converted .webp images to {opts.output_dir} ")
-    # TODO: create output directory if it doesn't exist and we're allowed
 
     convert_tasks = [
         asyncio.create_task(convert_and_strip_image_at_path_async(ip, opts.output_dir))
