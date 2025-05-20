@@ -95,7 +95,7 @@ def convert_and_strip_image_at_path_sync(
             img = img.convert("RGB")
         # don't set exif kwarg to avoid copying exif data
         img.save(result_path, "WEBP", lossless=True)
-        # should raise if file wasn't saved successfully
+        # should raise if file wasn't saved successfully (stat will fail)
         return ConvertResult(filepath=str(result_path), fstat=result_path.stat())
 
 
@@ -122,14 +122,12 @@ async def convert_and_strip_image_at_path_async(
 
 async def main():
     opts = parse_arguments(sys.argv[1:])
-
     mkdir_if_not_exists(opts.output_dir)
-    # TODO: support calling program with path to specific image
-    # instead of crawling a directory and converting everything in directory
-    image_paths = find_images_in_directory(opts.input_dir)
-    print(f"converting images in {opts.input_dir}")
-    print(f"saving converted .webp images to {opts.output_dir} ")
 
+    print(f"converting images in {opts.input_dir}")
+    print(f"saving converted .webp images to {opts.output_dir}")
+
+    image_paths = find_images_in_directory(opts.input_dir)
     convert_tasks = [
         asyncio.create_task(convert_and_strip_image_at_path_async(ip, opts.output_dir))
         for ip in image_paths
@@ -137,6 +135,7 @@ async def main():
     result_stats = [
         await ct for ct in tqdm.as_completed(convert_tasks, desc="Converting")
     ]
+
     print(f"successfully converted {len(result_stats)} images")
 
 
